@@ -38,11 +38,13 @@ runs:
         ASSET="${OS}_${ARCH}"
         echo "ASSET=$ASSET" >> $GITHUB_ENV
     - name: Cache kluctl
+      id: cache
       uses: actions/cache@v4
       with:
         path: ~/.kluctl
         key: kluctl-${{ runner.os }}-${{ runner.arch }}-${{ env.KLUCTL_VERSION }}
     - name: Download and extract kluctl
+      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -e
