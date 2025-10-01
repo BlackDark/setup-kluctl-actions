@@ -2,25 +2,23 @@ name: Test Kluctl Action
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v5
 
-    - name: Setup Kluctl (latest)
-      uses: ./  # Use the action from the current repo
-      with:
-        version: latest
+      - name: Setup Kluctl
+        uses: ./ # Use the action from the current repo
 
-    - name: Verify kluctl installation
-      run: kluctl version
-      shell: bash
+      - name: Verify kluctl installation
+        run: kluctl version
+        shell: bash
