@@ -1,0 +1,62 @@
+name: 'Setup Kluctl'
+description: 'Setup kluctl binary for use in GitHub workflows'
+branding:
+  icon: 'download'
+  color: 'blue'
+inputs:
+  version:
+    description: 'Version of kluctl to download (e.g., v2.20.0). Defaults to latest.'
+    required: false
+    default: 'latest'
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine kluctl version
+      shell: bash
+      run: |
+        if [ "${{ inputs.version }}" == "latest" ]; then
+          KLUCTL_VERSION=$(curl -s https://api.github.com/repos/kluctl/kluctl/releases/latest | jq -r .tag_name)
+        else
+          KLUCTL_VERSION=${{ inputs.version }}
+        fi
+        echo "KLUCTL_VERSION=$KLUCTL_VERSION" >> $GITHUB_ENV
+    - name: Determine asset name
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          OS="linux"
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          OS="darwin"
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          OS="windows"
+        fi
+        if [ "$RUNNER_ARCH" == "X64" ]; then
+          ARCH="amd64"
+        elif [ "$RUNNER_ARCH" == "ARM64" ]; then
+          ARCH="arm64"
+        fi
+        ASSET="${OS}_${ARCH}"
+        echo "ASSET=$ASSET" >> $GITHUB_ENV
+    - name: Cache kluctl
+      uses: actions/cache@v4
+      with:
+        path: ~/.kluctl
+        key: kluctl-${{ runner.os }}-${{ runner.arch }}-${{ env.KLUCTL_VERSION }}
+    - name: Download and extract kluctl
+      shell: bash
+      run: |
+        set -e
+        mkdir -p ~/.kluctl
+        EXT="tar.gz"
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          EXT="zip"
+        fi
+        curl -L https://github.com/kluctl/kluctl/releases/download/${{ env.KLUCTL_VERSION }}/kluctl_${{ env.KLUCTL_VERSION }}_${{ env.ASSET }}.${EXT} -o kluctl.${EXT}
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          unzip kluctl.${EXT} -d ~/.kluctl
+        else
+          tar xvzf kluctl.${EXT} -C ~/.kluctl
+        fi
+    - name: Add kluctl to PATH
+      shell: bash
+      run: echo "~/.kluctl" >> $GITHUB_PATH
