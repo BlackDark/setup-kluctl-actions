@@ -39,7 +39,7 @@ runs:
         echo "ASSET=$ASSET" >> $GITHUB_ENV
     - name: Cache kluctl
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.kluctl
         key: kluctl-${{ runner.os }}-${{ runner.arch }}-${{ env.KLUCTL_VERSION }}
