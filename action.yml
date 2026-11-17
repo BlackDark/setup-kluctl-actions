@@ -12,52 +12,63 @@ runs:
   using: 'composite'
   steps:
     - name: Determine kluctl version
+      id: version
       shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
       run: |
-        if [ "${{ inputs.version }}" == "latest" ]; then
-          KLUCTL_VERSION=$(curl -s https://api.github.com/repos/kluctl/kluctl/releases/latest | jq -r .tag_name)
+        if [ "$INPUT_VERSION" == "latest" ]; then
+          KLUCTL_VERSION=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/kluctl/kluctl/releases/latest | jq -r .tag_name)
         else
-          KLUCTL_VERSION=${{ inputs.version }}
+          KLUCTL_VERSION="$INPUT_VERSION"
         fi
-        echo "KLUCTL_VERSION=$KLUCTL_VERSION" >> $GITHUB_ENV
-    - name: Determine asset name
+        if [[ ! "$KLUCTL_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          echo "Invalid kluctl version: $KLUCTL_VERSION" >&2
+          exit 1
+        fi
+        echo "value=$KLUCTL_VERSION" >> "$GITHUB_OUTPUT"
+    - name: Cache kluctl
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.kluctl
+        key: kluctl-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.value }}
+    - name: Download and extract kluctl
+      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        KLUCTL_VERSION: ${{ steps.version.outputs.value }}
       run: |
+        set -euo pipefail
+        mkdir -p ~/.kluctl
         if [ "$RUNNER_OS" == "Linux" ]; then
           OS="linux"
+          EXT="tar.gz"
         elif [ "$RUNNER_OS" == "macOS" ]; then
           OS="darwin"
+          EXT="tar.gz"
         elif [ "$RUNNER_OS" == "Windows" ]; then
           OS="windows"
+          EXT="zip"
+        else
+          echo "Unsupported OS: $RUNNER_OS" >&2
+          exit 1
         fi
         if [ "$RUNNER_ARCH" == "X64" ]; then
           ARCH="amd64"
         elif [ "$RUNNER_ARCH" == "ARM64" ]; then
           ARCH="arm64"
+        else
+          echo "Unsupported architecture: $RUNNER_ARCH" >&2
+          exit 1
         fi
         ASSET="${OS}_${ARCH}"
-        echo "ASSET=$ASSET" >> $GITHUB_ENV
-    - name: Cache kluctl
-      id: cache
-      uses: actions/cache@v6
-      with:
-        path: ~/.kluctl
-        key: kluctl-${{ runner.os }}-${{ runner.arch }}-${{ env.KLUCTL_VERSION }}
-    - name: Download and extract kluctl
-      if: steps.cache.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        set -e
-        mkdir -p ~/.kluctl
-        EXT="tar.gz"
+        curl -fsSL "https://github.com/kluctl/kluctl/releases/download/${KLUCTL_VERSION}/kluctl_${KLUCTL_VERSION}_${ASSET}.${EXT}" -o "kluctl.${EXT}"
         if [ "$RUNNER_OS" == "Windows" ]; then
-          EXT="zip"
-        fi
-        curl -L https://github.com/kluctl/kluctl/releases/download/${{ env.KLUCTL_VERSION }}/kluctl_${{ env.KLUCTL_VERSION }}_${{ env.ASSET }}.${EXT} -o kluctl.${EXT}
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          unzip kluctl.${EXT} -d ~/.kluctl
+          unzip "kluctl.${EXT}" -d ~/.kluctl
         else
-          tar xvzf kluctl.${EXT} -C ~/.kluctl
+          tar xvzf "kluctl.${EXT}" -C ~/.kluctl
         fi
     - name: Add kluctl to PATH
       shell: bash
