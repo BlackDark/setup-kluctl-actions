@@ -16,9 +16,10 @@ runs:
       shell: bash
       env:
         INPUT_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         if [ "$INPUT_VERSION" == "latest" ]; then
-          KLUCTL_VERSION=$(curl -fsSL https://api.github.com/repos/kluctl/kluctl/releases/latest | jq -r .tag_name)
+          KLUCTL_VERSION=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/kluctl/kluctl/releases/latest | jq -r .tag_name)
         else
           KLUCTL_VERSION="$INPUT_VERSION"
         fi
